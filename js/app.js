@@ -171,6 +171,29 @@
     }
   }
 
+  // ---------- 출제 이력(문제은행 소진 관리) ----------
+  // 같은 모드+시대 풀을 다 쓰기 전까지는 이미 나온 문제가 다시 나오지 않도록
+  // 출제된 id를 localStorage에 쌓아 두고, 풀이 바닥나면 그때 비워서 다시 순환시켜요.
+  function seenKey(mode, era) {
+    return `history-joo-seen-${mode}-${era}`;
+  }
+
+  function getSeenIds(mode, era) {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(seenKey(mode, era)) || "[]"));
+    } catch (e) {
+      return new Set();
+    }
+  }
+
+  function saveSeenIds(mode, era, idSet) {
+    try {
+      localStorage.setItem(seenKey(mode, era), JSON.stringify([...idSet]));
+    } catch (e) {
+      /* localStorage 사용 불가 시 조용히 무시 */
+    }
+  }
+
   // ---------- 유틸 ----------
   function shuffle(arr) {
     const a = arr.slice();
@@ -186,10 +209,38 @@
     return era === "전체" ? dataset : dataset.filter((p) => p.era === era);
   }
 
-  function buildQuestions(era, count) {
+  function buildQuestions(mode, era, count) {
     const pool = pickPool(era);
-    const n = Math.min(count, pool.length);
-    return shuffle(pool).slice(0, n);
+    let seen = getSeenIds(mode, era);
+    let unseen = pool.filter((p) => !seen.has(p.id));
+
+    if (unseen.length === 0) {
+      // 문제은행을 다 돌았으면 이력을 비우고 처음부터 다시 순환시켜요.
+      seen = new Set();
+      unseen = pool.slice();
+    }
+
+    let selected = shuffle(unseen).slice(0, count);
+
+    if (selected.length < count) {
+      // 남은 미출제 문제만으로 부족하면, 이번 판을 채우기 위해 순환을 한 번 더 돌려요.
+      seen = new Set();
+      const already = new Set(selected.map((p) => p.id));
+      const extra = shuffle(pool.filter((p) => !already.has(p.id)));
+      selected = selected.concat(extra.slice(0, count - selected.length));
+
+      // 그래도 부족하면(전체 문항 수보다 요청 문제 수가 많은 경우) 무작위로 채워요.
+      let i = 0;
+      while (selected.length < count && pool.length > 0) {
+        selected.push(shuffle(pool)[i % pool.length]);
+        i++;
+      }
+    }
+
+    const usedIds = new Set([...seen, ...selected.map((p) => p.id)]);
+    saveSeenIds(mode, era, usedIds);
+
+    return shuffle(selected);
   }
 
   function buildChoices(answer) {
@@ -205,7 +256,7 @@
 
   // ---------- 게임 시작 ----------
   function startGame() {
-    const questions = buildQuestions(settings.era, settings.count);
+    const questions = buildQuestions(settings.mode, settings.era, settings.count);
     const levelConfig = LEVELS[settings.level] || LEVELS.highschool;
     el.quizTitle.textContent = QUIZ_TITLES[settings.mode] || QUIZ_TITLES["인물"];
     state = {
