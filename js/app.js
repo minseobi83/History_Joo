@@ -2,12 +2,16 @@
 (function () {
   "use strict";
 
-  const HINT_PENALTY = 20; // 힌트 하나 더 볼 때마다 깎이는 점수
   const BASE_SCORE = 100; // 문제 하나 맞혔을 때 기본 점수
-  const START_LIVES = 3;
 
-  /** @type {{mode:string, era:string, count:number}} */
-  const settings = { mode: "인물", era: "전체", count: 10 };
+  // 난이도별 설정: maxHints가 적을수록, 가장 결정적인(마지막) 힌트를 못 보므로 더 어려워짐
+  const LEVELS = {
+    basic: { label: "초중등(기본)", maxHints: 3, hintPenalty: 20, lives: 3, showEmoji: true },
+    hard: { label: "고등(심화)", maxHints: 2, hintPenalty: 35, lives: 2, showEmoji: false },
+  };
+
+  /** @type {{mode:string, era:string, count:number, level:string}} */
+  const settings = { mode: "인물", era: "전체", count: 10, level: "hard" };
 
   const QUIZ_TITLES = {
     인물: "이 사람은 누구일까요?",
@@ -30,6 +34,7 @@
 
   const el = {
     modeButtons: document.getElementById("mode-buttons"),
+    levelButtons: document.getElementById("level-buttons"),
     eraButtons: document.getElementById("era-buttons"),
     countButtons: document.getElementById("count-buttons"),
     btnStart: document.getElementById("btn-start"),
@@ -92,6 +97,17 @@
     });
   }
 
+  function bindLevelButtons() {
+    [...el.levelButtons.children].forEach((btn) => {
+      btn.addEventListener("click", () => {
+        settings.level = btn.dataset.level;
+        [...el.levelButtons.children].forEach((c) => c.classList.remove("selected"));
+        btn.classList.add("selected");
+        updateBestScoreDisplay();
+      });
+    });
+  }
+
   function bindCountButtons() {
     [...el.countButtons.children].forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -102,16 +118,16 @@
     });
   }
 
-  function bestScoreKey(mode, era) {
-    return `history-joo-best-${mode}-${era}`;
+  function bestScoreKey(mode, era, level) {
+    return `history-joo-best-${mode}-${era}-${level}`;
   }
 
   function updateBestScoreDisplay() {
     try {
-      const best = localStorage.getItem(bestScoreKey(settings.mode, settings.era));
+      const best = localStorage.getItem(bestScoreKey(settings.mode, settings.era, settings.level));
       if (best) {
         el.bestScoreBox.hidden = false;
-        el.bestScoreText.textContent = `🏆 '${settings.mode} · ${settings.era}' 최고 점수: ${best}점`;
+        el.bestScoreText.textContent = `🏆 '${LEVELS[settings.level].label} · ${settings.mode} · ${settings.era}' 최고 점수: ${best}점`;
       } else {
         el.bestScoreBox.hidden = true;
       }
@@ -120,9 +136,9 @@
     }
   }
 
-  function saveBestScore(mode, era, score) {
+  function saveBestScore(mode, era, level, score) {
     try {
-      const key = bestScoreKey(mode, era);
+      const key = bestScoreKey(mode, era, level);
       const prev = parseInt(localStorage.getItem(key) || "0", 10);
       if (score > prev) {
         localStorage.setItem(key, String(score));
@@ -134,9 +150,9 @@
     return false;
   }
 
-  function getBestScore(mode, era) {
+  function getBestScore(mode, era, level) {
     try {
-      return parseInt(localStorage.getItem(bestScoreKey(mode, era)) || "0", 10);
+      return parseInt(localStorage.getItem(bestScoreKey(mode, era, level)) || "0", 10);
     } catch (e) {
       return 0;
     }
@@ -177,14 +193,17 @@
   // ---------- 게임 시작 ----------
   function startGame() {
     const questions = buildQuestions(settings.era, settings.count);
+    const levelConfig = LEVELS[settings.level] || LEVELS.basic;
     el.quizTitle.textContent = QUIZ_TITLES[settings.mode] || QUIZ_TITLES["인물"];
     state = {
       mode: settings.mode,
       era: settings.era,
+      level: settings.level,
+      levelConfig,
       questions,
       index: 0,
       score: 0,
-      lives: START_LIVES,
+      lives: levelConfig.lives,
       correctCount: 0,
       hintsShown: 1,
       answered: false,
@@ -203,9 +222,9 @@
 
     const q = currentQuestion();
     el.progressText.textContent = `문제 ${state.index + 1}/${state.questions.length}`;
-    el.livesBox.textContent = "❤️".repeat(state.lives) + "🖤".repeat(START_LIVES - state.lives);
+    el.livesBox.textContent = "❤️".repeat(state.lives) + "🖤".repeat(state.levelConfig.lives - state.lives);
     el.scoreBox.textContent = `점수 ${state.score}`;
-    el.figureEmoji.textContent = q.emoji;
+    el.figureEmoji.textContent = state.levelConfig.showEmoji ? q.emoji : "❓";
 
     el.feedbackBox.hidden = true;
     renderHints();
@@ -225,13 +244,13 @@
   }
 
   function updateMoreHintButton() {
-    const q = currentQuestion();
-    if (state.hintsShown >= q.hints.length || state.answered) {
+    const maxHints = state.levelConfig.maxHints;
+    if (state.hintsShown >= maxHints || state.answered) {
       el.btnMoreHint.disabled = true;
       el.btnMoreHint.textContent = "💡 힌트 다 봤어요";
     } else {
       el.btnMoreHint.disabled = false;
-      el.btnMoreHint.textContent = `💡 힌트 더 보기 (-${HINT_PENALTY}점)`;
+      el.btnMoreHint.textContent = `💡 힌트 더 보기 (-${state.levelConfig.hintPenalty}점)`;
     }
   }
 
@@ -250,8 +269,7 @@
 
   function onMoreHint() {
     if (state.answered) return;
-    const q = currentQuestion();
-    if (state.hintsShown < q.hints.length) {
+    if (state.hintsShown < state.levelConfig.maxHints) {
       state.hintsShown++;
       renderHints();
       updateMoreHintButton();
@@ -272,7 +290,7 @@
     });
 
     if (isCorrect) {
-      const gained = Math.max(BASE_SCORE - extraHints * HINT_PENALTY, 40);
+      const gained = Math.max(BASE_SCORE - extraHints * state.levelConfig.hintPenalty, 40);
       state.score += gained;
       state.correctCount++;
       el.feedbackText.textContent = `🎉 정답이에요! (+${gained}점)`;
@@ -285,7 +303,7 @@
     el.factText.textContent = `📚 ${q.fact}`;
     el.feedbackBox.hidden = false;
     el.scoreBox.textContent = `점수 ${state.score}`;
-    el.livesBox.textContent = "❤️".repeat(Math.max(state.lives, 0)) + "🖤".repeat(START_LIVES - Math.max(state.lives, 0));
+    el.livesBox.textContent = "❤️".repeat(Math.max(state.lives, 0)) + "🖤".repeat(state.levelConfig.lives - Math.max(state.lives, 0));
     updateMoreHintButton();
 
     el.btnNext.textContent = state.lives <= 0 ? "결과 보기 ▶" : (state.index + 1 >= state.questions.length ? "결과 보기 ▶" : "다음 문제 ▶");
@@ -303,8 +321,8 @@
   // ---------- 결과 화면 ----------
   function endGame() {
     const total = state.questions.length;
-    const isNewBest = saveBestScore(state.mode, state.era, state.score);
-    const best = getBestScore(state.mode, state.era);
+    const isNewBest = saveBestScore(state.mode, state.era, state.level, state.score);
+    const best = getBestScore(state.mode, state.era, state.level);
 
     let medal = "🥉";
     let title = "다음엔 더 잘할 수 있어요!";
@@ -324,7 +342,7 @@
     el.endTitle.textContent = title;
     el.endSummary.textContent = `총 ${total}문제 중 ${state.correctCount}문제를 맞혔어요.`;
     el.endScore.textContent = `최종 점수: ${state.score}점` + (isNewBest ? " 🎊 최고 기록 경신!" : "");
-    el.endBest.textContent = `'${state.mode} · ${state.era}' 최고 점수: ${best}점`;
+    el.endBest.textContent = `'${state.levelConfig.label} · ${state.mode} · ${state.era}' 최고 점수: ${best}점`;
 
     showScreen("end");
   }
@@ -340,6 +358,7 @@
   });
 
   bindModeButtons();
+  bindLevelButtons();
   buildEraButtons();
   bindCountButtons();
   updateBestScoreDisplay();
