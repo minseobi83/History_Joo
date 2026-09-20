@@ -3,11 +3,17 @@
   "use strict";
 
   const BASE_SCORE = 100; // 문제 하나 맞혔을 때 기본 점수
+  const HINT_STEP = 10; // 힌트를 볼 때마다 커지는 차감 점수 단위 (1번째 -10, 2번째 -20, 3번째 -30 ...)
+
+  // 힌트 n개를 추가로 본 경우 누적 차감 점수: 10 + 20 + ... + 10n = 10 * n(n+1)/2
+  function cumulativeHintPenalty(extraHints) {
+    return HINT_STEP * (extraHints * (extraHints + 1)) / 2;
+  }
 
   // 난이도별 설정: maxHints가 적을수록, 가장 결정적인(마지막) 힌트를 못 보므로 더 어려워짐
   const LEVELS = {
-    basic: { label: "초중등(기본)", maxHints: 3, hintPenalty: 20, lives: 3, showEmoji: true },
-    hard: { label: "고등(심화)", maxHints: 2, hintPenalty: 35, lives: 2, showEmoji: false },
+    basic: { label: "초중등(기본)", maxHints: 3, lives: 3 },
+    hard: { label: "고등(심화)", maxHints: 2, lives: 2 },
   };
 
   /** @type {{mode:string, era:string, count:number, level:string}} */
@@ -44,7 +50,6 @@
     progressText: document.getElementById("progress-text"),
     livesBox: document.getElementById("lives-box"),
     scoreBox: document.getElementById("score-box"),
-    figureEmoji: document.getElementById("figure-emoji"),
     quizTitle: document.getElementById("quiz-title"),
     hintList: document.getElementById("hint-list"),
     btnMoreHint: document.getElementById("btn-more-hint"),
@@ -220,11 +225,9 @@
     state.hintsShown = 1;
     state.answered = false;
 
-    const q = currentQuestion();
     el.progressText.textContent = `문제 ${state.index + 1}/${state.questions.length}`;
     el.livesBox.textContent = "❤️".repeat(state.lives) + "🖤".repeat(state.levelConfig.lives - state.lives);
     el.scoreBox.textContent = `점수 ${state.score}`;
-    el.figureEmoji.textContent = state.levelConfig.showEmoji ? q.emoji : "❓";
 
     el.feedbackBox.hidden = true;
     renderHints();
@@ -249,8 +252,9 @@
       el.btnMoreHint.disabled = true;
       el.btnMoreHint.textContent = "💡 힌트 다 봤어요";
     } else {
+      const nextHintCost = HINT_STEP * state.hintsShown;
       el.btnMoreHint.disabled = false;
-      el.btnMoreHint.textContent = `💡 힌트 더 보기 (-${state.levelConfig.hintPenalty}점)`;
+      el.btnMoreHint.textContent = `💡 힌트 더 보기 (-${nextHintCost}점)`;
     }
   }
 
@@ -290,7 +294,7 @@
     });
 
     if (isCorrect) {
-      const gained = Math.max(BASE_SCORE - extraHints * state.levelConfig.hintPenalty, 40);
+      const gained = Math.max(BASE_SCORE - cumulativeHintPenalty(extraHints), 40);
       state.score += gained;
       state.correctCount++;
       el.feedbackText.textContent = `🎉 정답이에요! (+${gained}점)`;
