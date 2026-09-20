@@ -10,14 +10,16 @@
     return HINT_STEP * (extraHints * (extraHints + 1)) / 2;
   }
 
-  // 난이도별 설정: maxHints가 적을수록, 가장 결정적인(마지막) 힌트를 못 보므로 더 어려워짐
+  // 난이도별 설정: maxHints가 적을수록 결정적인 힌트를 못 보므로 더 어려워짐
+  // 대학생 단계는 가장 막연한 첫 힌트 하나만 주고 목숨도 하나뿐
   const LEVELS = {
-    basic: { label: "초중등(기본)", maxHints: 3, lives: 3 },
-    hard: { label: "고등(심화)", maxHints: 2, lives: 2 },
+    basic: { label: "초중등", maxHints: 3, lives: 3, scoreMultiplier: 1 },
+    highschool: { label: "고등학생", maxHints: 2, lives: 2, scoreMultiplier: 1.5 },
+    university: { label: "대학생", maxHints: 1, lives: 1, scoreMultiplier: 2 },
   };
 
   /** @type {{mode:string, era:string, count:number, level:string}} */
-  const settings = { mode: "인물", era: "전체", count: 10, level: "hard" };
+  const settings = { mode: "인물", era: "전체", count: 10, level: "highschool" };
 
   const QUIZ_TITLES = {
     인물: "이 사람은 누구일까요?",
@@ -41,6 +43,7 @@
   const el = {
     modeButtons: document.getElementById("mode-buttons"),
     levelButtons: document.getElementById("level-buttons"),
+    levelDesc: document.getElementById("level-desc"),
     eraButtons: document.getElementById("era-buttons"),
     countButtons: document.getElementById("count-buttons"),
     btnStart: document.getElementById("btn-start"),
@@ -103,12 +106,18 @@
     });
   }
 
+  function updateLevelDesc() {
+    const cfg = LEVELS[settings.level];
+    el.levelDesc.textContent = `힌트 최대 ${cfg.maxHints}개 · 목숨 ${cfg.lives}개 · 점수 ${cfg.scoreMultiplier}배`;
+  }
+
   function bindLevelButtons() {
     [...el.levelButtons.children].forEach((btn) => {
       btn.addEventListener("click", () => {
         settings.level = btn.dataset.level;
         [...el.levelButtons.children].forEach((c) => c.classList.remove("selected"));
         btn.classList.add("selected");
+        updateLevelDesc();
         updateBestScoreDisplay();
       });
     });
@@ -295,7 +304,8 @@
     });
 
     if (isCorrect) {
-      const gained = Math.max(BASE_SCORE - cumulativeHintPenalty(extraHints), 40);
+      const afterHints = Math.max(BASE_SCORE - cumulativeHintPenalty(extraHints), 40);
+      const gained = Math.round(afterHints * state.levelConfig.scoreMultiplier);
       state.score += gained;
       state.correctCount++;
       el.feedbackText.textContent = `🎉 정답이에요! (+${gained}점)`;
@@ -368,5 +378,6 @@
   bindLevelButtons();
   buildEraButtons();
   bindCountButtons();
+  updateLevelDesc();
   updateBestScoreDisplay();
 })();
