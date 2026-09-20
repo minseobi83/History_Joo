@@ -66,6 +66,7 @@
     endBest: document.getElementById("end-best"),
     btnRestart: document.getElementById("btn-restart"),
     btnHome: document.getElementById("btn-home"),
+    btnHomeGame: document.getElementById("btn-home-game"),
   };
 
   function showScreen(name) {
@@ -356,10 +357,12 @@
   el.btnMoreHint.addEventListener("click", onMoreHint);
   el.btnNext.addEventListener("click", onNext);
   el.btnRestart.addEventListener("click", startGame);
-  el.btnHome.addEventListener("click", () => {
+  function goHome() {
     showScreen("start");
     updateBestScoreDisplay();
-  });
+  }
+  el.btnHome.addEventListener("click", goHome);
+  el.btnHomeGame.addEventListener("click", goHome);
 
   bindModeButtons();
   bindLevelButtons();
