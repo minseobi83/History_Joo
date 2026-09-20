@@ -10,10 +10,8 @@
     return HINT_STEP * (extraHints * (extraHints + 1)) / 2;
   }
 
-  // 난이도별 설정: maxHints가 적을수록 결정적인 힌트를 못 보므로 더 어려워짐
-  // 대학생 단계는 가장 막연한 첫 힌트 하나만 주고 목숨도 하나뿐
+  // 난이도별 설정: 대학생 단계는 보충 힌트 없이 첫 힌트 하나만 주고 목숨도 하나뿐
   const LEVELS = {
-    basic: { label: "초중등", maxHints: 3, lives: 3, scoreMultiplier: 1 },
     highschool: { label: "고등학생", maxHints: 2, lives: 2, scoreMultiplier: 1.5 },
     university: { label: "대학생", maxHints: 1, lives: 1, scoreMultiplier: 2 },
   };
@@ -208,7 +206,7 @@
   // ---------- 게임 시작 ----------
   function startGame() {
     const questions = buildQuestions(settings.era, settings.count);
-    const levelConfig = LEVELS[settings.level] || LEVELS.basic;
+    const levelConfig = LEVELS[settings.level] || LEVELS.highschool;
     el.quizTitle.textContent = QUIZ_TITLES[settings.mode] || QUIZ_TITLES["인물"];
     state = {
       mode: settings.mode,
