@@ -6,8 +6,17 @@
   const BASE_SCORE = 100; // 문제 하나 맞혔을 때 기본 점수
   const START_LIVES = 3;
 
-  /** @type {{era:string, count:number}} */
-  const settings = { era: "전체", count: 10 };
+  /** @type {{mode:string, era:string, count:number}} */
+  const settings = { mode: "인물", era: "전체", count: 10 };
+
+  const QUIZ_TITLES = {
+    인물: "이 사람은 누구일까요?",
+    사건: "이 사건은 무엇일까요?",
+  };
+
+  function getDataset() {
+    return settings.mode === "사건" ? EVENTS : PEOPLE;
+  }
 
   /** 게임 진행 상태 */
   let state = null;
@@ -20,6 +29,7 @@
   };
 
   const el = {
+    modeButtons: document.getElementById("mode-buttons"),
     eraButtons: document.getElementById("era-buttons"),
     countButtons: document.getElementById("count-buttons"),
     btnStart: document.getElementById("btn-start"),
@@ -30,6 +40,7 @@
     livesBox: document.getElementById("lives-box"),
     scoreBox: document.getElementById("score-box"),
     figureEmoji: document.getElementById("figure-emoji"),
+    quizTitle: document.getElementById("quiz-title"),
     hintList: document.getElementById("hint-list"),
     btnMoreHint: document.getElementById("btn-more-hint"),
     choices: document.getElementById("choices"),
@@ -70,6 +81,17 @@
     });
   }
 
+  function bindModeButtons() {
+    [...el.modeButtons.children].forEach((btn) => {
+      btn.addEventListener("click", () => {
+        settings.mode = btn.dataset.mode;
+        [...el.modeButtons.children].forEach((c) => c.classList.remove("selected"));
+        btn.classList.add("selected");
+        updateBestScoreDisplay();
+      });
+    });
+  }
+
   function bindCountButtons() {
     [...el.countButtons.children].forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -80,16 +102,16 @@
     });
   }
 
-  function bestScoreKey(era) {
-    return `history-joo-best-${era}`;
+  function bestScoreKey(mode, era) {
+    return `history-joo-best-${mode}-${era}`;
   }
 
   function updateBestScoreDisplay() {
     try {
-      const best = localStorage.getItem(bestScoreKey(settings.era));
+      const best = localStorage.getItem(bestScoreKey(settings.mode, settings.era));
       if (best) {
         el.bestScoreBox.hidden = false;
-        el.bestScoreText.textContent = `🏆 '${settings.era}' 최고 점수: ${best}점`;
+        el.bestScoreText.textContent = `🏆 '${settings.mode} · ${settings.era}' 최고 점수: ${best}점`;
       } else {
         el.bestScoreBox.hidden = true;
       }
@@ -98,9 +120,9 @@
     }
   }
 
-  function saveBestScore(era, score) {
+  function saveBestScore(mode, era, score) {
     try {
-      const key = bestScoreKey(era);
+      const key = bestScoreKey(mode, era);
       const prev = parseInt(localStorage.getItem(key) || "0", 10);
       if (score > prev) {
         localStorage.setItem(key, String(score));
@@ -112,9 +134,9 @@
     return false;
   }
 
-  function getBestScore(era) {
+  function getBestScore(mode, era) {
     try {
-      return parseInt(localStorage.getItem(bestScoreKey(era)) || "0", 10);
+      return parseInt(localStorage.getItem(bestScoreKey(mode, era)) || "0", 10);
     } catch (e) {
       return 0;
     }
@@ -131,7 +153,8 @@
   }
 
   function pickPool(era) {
-    return era === "전체" ? PEOPLE : PEOPLE.filter((p) => p.era === era);
+    const dataset = getDataset();
+    return era === "전체" ? dataset : dataset.filter((p) => p.era === era);
   }
 
   function buildQuestions(era, count) {
@@ -141,8 +164,9 @@
   }
 
   function buildChoices(answer) {
-    const sameEra = PEOPLE.filter((p) => p.era === answer.era && p.id !== answer.id);
-    const others = PEOPLE.filter((p) => p.era !== answer.era && p.id !== answer.id);
+    const dataset = getDataset();
+    const sameEra = dataset.filter((p) => p.era === answer.era && p.id !== answer.id);
+    const others = dataset.filter((p) => p.era !== answer.era && p.id !== answer.id);
     const distractors = shuffle(sameEra).slice(0, 3);
     if (distractors.length < 3) {
       distractors.push(...shuffle(others).slice(0, 3 - distractors.length));
@@ -153,7 +177,9 @@
   // ---------- 게임 시작 ----------
   function startGame() {
     const questions = buildQuestions(settings.era, settings.count);
+    el.quizTitle.textContent = QUIZ_TITLES[settings.mode] || QUIZ_TITLES["인물"];
     state = {
+      mode: settings.mode,
       era: settings.era,
       questions,
       index: 0,
@@ -277,8 +303,8 @@
   // ---------- 결과 화면 ----------
   function endGame() {
     const total = state.questions.length;
-    const isNewBest = saveBestScore(state.era, state.score);
-    const best = getBestScore(state.era);
+    const isNewBest = saveBestScore(state.mode, state.era, state.score);
+    const best = getBestScore(state.mode, state.era);
 
     let medal = "🥉";
     let title = "다음엔 더 잘할 수 있어요!";
@@ -298,7 +324,7 @@
     el.endTitle.textContent = title;
     el.endSummary.textContent = `총 ${total}문제 중 ${state.correctCount}문제를 맞혔어요.`;
     el.endScore.textContent = `최종 점수: ${state.score}점` + (isNewBest ? " 🎊 최고 기록 경신!" : "");
-    el.endBest.textContent = `'${state.era}' 최고 점수: ${best}점`;
+    el.endBest.textContent = `'${state.mode} · ${state.era}' 최고 점수: ${best}점`;
 
     showScreen("end");
   }
@@ -313,6 +339,7 @@
     updateBestScoreDisplay();
   });
 
+  bindModeButtons();
   buildEraButtons();
   bindCountButtons();
   updateBestScoreDisplay();

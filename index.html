@@ -19,6 +19,14 @@
         <p class="subtitle">힌트를 보고 역사 속 인물을 맞혀 보세요!</p>
 
         <div class="option-group">
+          <h2>모드를 골라요</h2>
+          <div id="mode-buttons" class="chip-row">
+            <button class="chip selected" data-mode="인물">🙋 인물 맞추기</button>
+            <button class="chip" data-mode="사건">📜 사건 맞추기</button>
+          </div>
+        </div>
+
+        <div class="option-group">
           <h2>시대를 골라요</h2>
           <div id="era-buttons" class="chip-row"></div>
         </div>
@@ -50,7 +58,7 @@
 
       <div class="card quiz-card">
         <div class="figure-emoji" id="figure-emoji">🏛️</div>
-        <h2 class="quiz-title">이 사람은 누구일까요?</h2>
+        <h2 class="quiz-title" id="quiz-title">이 사람은 누구일까요?</h2>
 
         <div id="hint-list" class="hint-list"></div>
 
