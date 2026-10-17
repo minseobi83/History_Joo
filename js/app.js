@@ -10,10 +10,11 @@
     return HINT_STEP * (extraHints * (extraHints + 1)) / 2;
   }
 
-  // 난이도별 설정: 대학생 단계는 보충 힌트 없이 첫 힌트 하나만 주고 목숨도 하나뿐
+  // 난이도별 설정: hintIndices가 실제로 보여줄 힌트의 인덱스를 순서대로 지정해요.
+  // 고등학생은 1~2번째(구체적 사실) 힌트를, 대학생은 3번째(전문가용) 힌트 하나만 써요.
   const LEVELS = {
-    highschool: { label: "고등학생", maxHints: 2, lives: 2, scoreMultiplier: 1.5 },
-    university: { label: "대학생", maxHints: 1, lives: 1, scoreMultiplier: 2 },
+    highschool: { label: "고등학생", hintIndices: [0, 1], lives: 2, scoreMultiplier: 1.5 },
+    university: { label: "대학생", hintIndices: [2], lives: 1, scoreMultiplier: 2.5 },
   };
 
   /** @type {{mode:string, era:string, count:number, level:string}} */
@@ -106,7 +107,7 @@
 
   function updateLevelDesc() {
     const cfg = LEVELS[settings.level];
-    el.levelDesc.textContent = `힌트 최대 ${cfg.maxHints}개 · 목숨 ${cfg.lives}개 · 점수 ${cfg.scoreMultiplier}배`;
+    el.levelDesc.textContent = `힌트 최대 ${cfg.hintIndices.length}개 · 목숨 ${cfg.lives}개 · 점수 ${cfg.scoreMultiplier}배`;
   }
 
   function bindLevelButtons() {
@@ -296,17 +297,18 @@
 
   function renderHints() {
     const q = currentQuestion();
+    const indices = state.levelConfig.hintIndices;
     el.hintList.innerHTML = "";
     for (let i = 0; i < state.hintsShown; i++) {
       const div = document.createElement("div");
       div.className = "hint-item";
-      div.innerHTML = `<span class="hint-num">힌트 ${i + 1}</span>${q.hints[i]}`;
+      div.innerHTML = `<span class="hint-num">힌트 ${i + 1}</span>${q.hints[indices[i]]}`;
       el.hintList.appendChild(div);
     }
   }
 
   function updateMoreHintButton() {
-    const maxHints = state.levelConfig.maxHints;
+    const maxHints = state.levelConfig.hintIndices.length;
     if (state.hintsShown >= maxHints || state.answered) {
       el.btnMoreHint.disabled = true;
       el.btnMoreHint.textContent = "💡 힌트 다 봤어요";
@@ -332,7 +334,7 @@
 
   function onMoreHint() {
     if (state.answered) return;
-    if (state.hintsShown < state.levelConfig.maxHints) {
+    if (state.hintsShown < state.levelConfig.hintIndices.length) {
       state.hintsShown++;
       renderHints();
       updateMoreHintButton();
